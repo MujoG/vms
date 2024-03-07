@@ -3,8 +3,9 @@
 # EXPOSE 5248
 # EXPOSE 5249
 
+# ENV ASPNETCORE_ENVIRONMENT=Development
 
-# FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# FROM  mcr.microsoft.com/dotnet/sdk:8.0 AS build
 # ARG BUILD_CONFIGURATION=Release
 # WORKDIR /src
 # COPY ["api/api.csproj", "api/"]
@@ -23,19 +24,20 @@
 # ENTRYPOINT ["dotnet", "api.dll"]
 
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 as base
-WORKDIR /app
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+WORKDIR /App
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-COPY . /src
-WORKDIR /src
-RUN ls
-RUN dotnet build "api.csproj" -c Release -o /app/build
+ENV ASPNETCORE_ENVIRONMENT=Development
 
-FROM build AS publish
-RUN dotnet publish "api.csproj" -c Release -o /app/publish
+# Copy everything
+COPY . ./
+# Restore as distinct layers
+RUN dotnet restore
+# Build and publish a release
+RUN dotnet publish -c Release -o out
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
+# Build runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /App
+COPY --from=build-env /App/out .
 ENTRYPOINT ["dotnet", "api.dll"]
